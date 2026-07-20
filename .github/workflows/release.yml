@@ -57,7 +57,7 @@ env:
   NX_CHAT_SENTRY_DSN: ${{ secrets.NX_CHAT_SENTRY_DSN }}
   NX_CHAT_APP_ANNONYMOUS_USER_ID: "1767478432163172999"
   NX_MAX_LENGTH_NAME_ALLOWED: "64"
-  NX_UPDATE_URL: https://cdn.mezon.ai/release/
+  NX_UPDATE_URL: https://github.com/phuocnguyenncc/mezon-desktop/releases/latest/download/
 
 jobs:
   linux:

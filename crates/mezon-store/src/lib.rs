@@ -2,6 +2,7 @@ pub mod account;
 pub mod activity;
 pub mod album_layout;
 pub mod audio;
+pub mod auto_update;
 pub mod badge;
 pub mod cache;
 pub mod channel;
@@ -61,6 +62,7 @@ pub use audio::{
     AudioDeviceInfo, AudioStore, MicCaptureFactory, MicCaptureHandle, MicPcmCaptureFactory,
     MicPcmFormat,
 };
+pub use auto_update::{AutoUpdateStatus, AutoUpdateStore};
 pub use badge::BadgeService;
 pub use cache::{Freshness, KeyedCache};
 pub use channel::*;

@@ -2045,6 +2045,7 @@
   "common.transferredSuccessfully": "Chuyển giao thành công!",
   "common.unlockItem": "Mở khóa vật phẩm",
   "common.unmuteNotification": "Bật thông báo",
+  "common.updateMezon": "Cập nhật Mezon",
   "common.updateUsername.enterUsername": "Nhập tên Mezon",
   "common.updateUsername.errorDuplicate": "Có sự cố hoặc tên đã tồn tại, vui lòng chọn tên khác.",
   "common.updateUsername.skipUpdateBack": "Quay lại đăng nhập với số điện thoại",

@@ -278,8 +278,8 @@ jobs:
           merge-multiple: true
           path: feed
 
-      - name: Include Linux installer script
-        run: cp scripts/install-linux.sh feed/
+      - name: Include installer scripts
+        run: cp scripts/install-linux.sh scripts/install-windows.ps1 feed/
 
       - name: List feed
         run: ls -la feed/

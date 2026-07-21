@@ -565,6 +565,7 @@ fn open_main_window(
     };
 
     let auth_state = cx.new(|_| initial_auth);
+    mezon_store::AutoUpdateStore::init(mezon_store::AppConfig::global(cx).update_url.clone(), cx);
     let title_bar = cx.new(|cx| TitleBar::new(settings_entity.clone(), cx));
 
     mezon_store::LoginStore::init(client, api.clone(), auth_state.clone(), cx);
@@ -599,7 +600,6 @@ fn open_main_window(
     mezon_store::FilesStore::init(api.clone(), cx);
     mezon_store::PermissionStore::init(api.clone(), auth_state.clone(), cx);
     mezon_store::AccountStore::init(api, cx);
-    mezon_store::AutoUpdateStore::init(mezon_store::AppConfig::global(cx).update_url.clone(), cx);
 
     let platform_store = mezon_store::PlatformStore::init(cx);
     mezon_store::PlatformStore::set_open_url(

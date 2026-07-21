@@ -2,7 +2,7 @@ use gpui::{App, AppContext, Context, Entity, Global, SharedString, Task};
 use std::time::Duration;
 
 const POLL_INTERVAL: Duration = Duration::from_secs(60 * 60);
-const FIRST_POLL_DELAY: Duration = Duration::from_secs(15);
+const FIRST_POLL_DELAY: Duration = Duration::from_secs(5);
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum AutoUpdateStatus {

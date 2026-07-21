@@ -109,10 +109,30 @@ Upload vào đúng thư mục mà `NX_UPDATE_URL` trỏ tới (`https://cdn.mezo
    — đường dẫn `releases/latest/download/<file>` luôn redirect tới release mới
    nhất, không dính rate-limit API.
 
-**Lưu ý macOS trên CI (bắt buộc đọc trước khi publish):** job macOS của CI ký
-**ad-hoc** — chỉ dùng để test pipeline. Update production bằng bản ad-hoc sẽ làm
-user **mất session keychain và bị hỏi lại quyền mic/camera/screen** (keychain/TCC
-gắn với chữ ký Developer ID). Quy trình publish chuẩn:
+**Lưu ý macOS trên CI (bắt buộc đọc trước khi publish):** khi chưa cấu hình
+secrets ký code, job macOS ký **ad-hoc** — chỉ dùng để test pipeline. Mỗi bản
+ad-hoc có identity chữ ký khác nhau, nên update production bằng bản ad-hoc sẽ làm
+user **bị hỏi mật khẩu keychain sau mỗi lần update** (mất session) và bị hỏi lại
+quyền mic/camera/screen (keychain/TCC gắn với chữ ký code).
+
+**Cách chuẩn — CI tự ký Developer ID + notarize:** thêm secrets vào repo
+(Settings → Secrets and variables → Actions):
+
+| Secret | Nội dung |
+|---|---|
+| `MACOS_CERT_P12` | file `.p12` chứa cert "Developer ID Application" (export từ Keychain Access), encode base64: `base64 -i cert.p12 \| pbcopy` |
+| `MACOS_CERT_PASSWORD` | mật khẩu của file .p12 |
+| `APPLE_API_KEY_P8` | (tùy chọn, để notarize) nội dung file API key `.p8` của App Store Connect |
+| `APPLE_API_KEY_ID` | Key ID của API key |
+| `APPLE_API_ISSUER` | Issuer ID của API key |
+
+Có `MACOS_CERT_P12` → CI ký Developer ID (hardened runtime + entitlements
+`packaging/macos/entitlements.plist`); có thêm bộ `APPLE_API_*` → CI notarize +
+staple DMG. Khi đó mọi bản build có cùng identity → **user không bao giờ bị hỏi
+keychain khi update**, và DMG cài lần đầu qua browser cũng không bị Gatekeeper
+chặn (nếu đã notarize).
+
+Nếu chưa có secrets, quy trình publish thủ công thay thế:
 
 1. Trên máy Mac có cert: `just dist` (ký + notarize) rồi
    `bash scripts/make-update-feed.sh macos target/dist/Mezon.dmg`.

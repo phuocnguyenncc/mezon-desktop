@@ -71,15 +71,42 @@ try {
     Unblock-File -Path $target -ErrorAction SilentlyContinue
 
     $startMenu = Join-Path $env:APPDATA "Microsoft\Windows\Start Menu\Programs"
+    $shortcutPath = Join-Path $startMenu "Mezon.lnk"
     $shell = New-Object -ComObject WScript.Shell
-    $shortcut = $shell.CreateShortcut((Join-Path $startMenu "Mezon.lnk"))
+    $shortcut = $shell.CreateShortcut($shortcutPath)
     $shortcut.TargetPath = $target
     $shortcut.WorkingDirectory = $installDir
     $shortcut.Description = "Mezon desktop client"
     $shortcut.Save()
 
+    $uninstallScript = Join-Path $installDir "uninstall.ps1"
+    @'
+$ErrorActionPreference = "SilentlyContinue"
+Stop-Process -Name mezon -Force
+Start-Sleep -Seconds 1
+Remove-Item -Force (Join-Path $env:APPDATA "Microsoft\Windows\Start Menu\Programs\Mezon.lnk")
+Remove-Item -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\Mezon" -Recurse -Force
+$dir = Split-Path -Parent $MyInvocation.MyCommand.Path
+Set-Location $env:TEMP
+Remove-Item -Recurse -Force $dir
+Write-Host "Mezon has been uninstalled."
+'@ | Set-Content -Path $uninstallScript -Encoding UTF8
+
+    $regPath = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\Mezon"
+    New-Item -Path $regPath -Force | Out-Null
+    Set-ItemProperty -Path $regPath -Name "DisplayName" -Value "Mezon"
+    Set-ItemProperty -Path $regPath -Name "DisplayVersion" -Value $version
+    Set-ItemProperty -Path $regPath -Name "Publisher" -Value "Mezon"
+    Set-ItemProperty -Path $regPath -Name "InstallLocation" -Value $installDir
+    Set-ItemProperty -Path $regPath -Name "DisplayIcon" -Value $target
+    Set-ItemProperty -Path $regPath -Name "UninstallString" -Value "powershell.exe -ExecutionPolicy Bypass -File `"$uninstallScript`""
+    Set-ItemProperty -Path $regPath -Name "NoModify" -Value 1 -Type DWord
+    Set-ItemProperty -Path $regPath -Name "NoRepair" -Value 1 -Type DWord
+    $sizeKB = [int]((Get-Item $target).Length / 1KB)
+    Set-ItemProperty -Path $regPath -Name "EstimatedSize" -Value $sizeKB -Type DWord
+
     Write-Host "==> Installed Mezon $version to $target"
-    Write-Host "Launch it from the Start Menu (Mezon) or run: $target"
+    Write-Host "Launch it from the Start Menu (Mezon). Uninstall from Settings > Apps."
 }
 finally {
     Remove-Item -Recurse -Force -ErrorAction SilentlyContinue $tmp

@@ -102,7 +102,7 @@ impl ChatArea {
     pub fn ensure_input(&mut self, window: &mut Window, cx: &mut Context<crate::ChatLayout>) {
         if self.mention_input.is_none() {
             let locale = self.settings.read(cx).language.clone();
-            let placeholder = format!("{} HELLO", mezon_i18n::t(&locale, "messageBox.placeholder"));
+            let placeholder = mezon_i18n::t(&locale, "messageBox.placeholder");
             let settings = self.settings.clone();
             let mention_input = cx.new(|cx| MentionInput::new(placeholder, settings, window, cx));
             let submit_sub = cx.subscribe_in(

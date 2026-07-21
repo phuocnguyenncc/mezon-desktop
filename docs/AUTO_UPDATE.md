@@ -61,12 +61,15 @@ releaseDate: '2026-07-20T10:00:00.000Z'
   `mezon.exe` đang chạy thành `mezon-old-<pid>.exe` (Windows cho phép rename file
   đang chạy), đặt exe mới vào chỗ cũ. File `mezon-old-*.exe` được dọn ở lần khởi
   động sau. Yêu cầu `mezon.exe` nằm trong thư mục user ghi được.
-  Cài lần đầu bằng `scripts/install-windows.ps1`: tải + verify sha512 + cài vào
-  `%LOCALAPPDATA%\Programs\Mezon` + tạo Start Menu shortcut + `Unblock-File`
-  (gỡ Mark-of-the-Web nên không dính SmartScreen). Nếu user tự giải nén zip bằng
-  Explorer thì lần chạy đầu có thể gặp SmartScreen ("More info → Run anyway") vì
-  exe chưa ký Authenticode — ký Authenticode (tương đương notarize bên macOS) là
-  bước nâng cấp sau, không ảnh hưởng auto-update.
+  Cài lần đầu cho end user: **`Mezon-Setup-<v>.exe`** (Inno Setup, CI build kèm
+  trong release) — double-click là cài vào `%LOCALAPPDATA%\Programs\Mezon`,
+  có Start Menu + mục trong Settings→Apps + uninstaller, không cần quyền admin.
+  Kênh phụ cho dev: `scripts/install-windows.ps1` (tải + verify sha512 + cài +
+  Unblock-File). Zip trong feed chỉ dành cho updater.
+  Lưu ý SmartScreen: installer chưa ký Authenticode nên lần chạy setup đầu tiên
+  user thấy "More info → Run anyway"; ký Authenticode (OV/EV cert hoặc Azure
+  Trusted Signing — tương đương notarize bên macOS) là bước nâng cấp sau, không
+  ảnh hưởng auto-update.
 
 ## Các bước phát hành
 

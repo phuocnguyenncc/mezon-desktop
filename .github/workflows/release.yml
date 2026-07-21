@@ -124,6 +124,18 @@ jobs:
         shell: bash
         run: bash scripts/make-update-feed.sh windows
 
+      - name: Build installer
+        shell: pwsh
+        run: |
+          $version = (Select-String -Path Cargo.toml -Pattern '^version = "(.+)"').Matches[0].Groups[1].Value
+          & "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" `
+            /DMyAppVersion=$version `
+            /DSourceExe="$PWD\target\release\mezon.exe" `
+            /DSetupIcon="$PWD\crates\mezon-app\resources\windows\app.ico" `
+            /O"$PWD\target\installer" `
+            packaging\windows\mezon.iss
+          Copy-Item target\installer\*.exe target\update-feed\
+
       - name: Upload feed
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:

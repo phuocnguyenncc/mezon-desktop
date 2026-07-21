@@ -154,8 +154,25 @@ jobs:
           cargo build --release -p mezon-app --locked --target aarch64-apple-darwin
           cargo build --release -p mezon-app --locked --target x86_64-apple-darwin
 
+      - name: Detect signing configuration
+        id: signing
+        env:
+          MACOS_CERT_P12: ${{ secrets.MACOS_CERT_P12 }}
+          APPLE_API_KEY_P8: ${{ secrets.APPLE_API_KEY_P8 }}
+        run: |
+          if [ -n "$MACOS_CERT_P12" ]; then
+            echo "has_cert=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_cert=false" >> "$GITHUB_OUTPUT"
+          fi
+          if [ -n "$APPLE_API_KEY_P8" ]; then
+            echo "has_notary=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_notary=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Import Developer ID certificate
-        if: ${{ secrets.MACOS_CERT_P12 != '' }}
+        if: steps.signing.outputs.has_cert == 'true'
         env:
           MACOS_CERT_P12: ${{ secrets.MACOS_CERT_P12 }}
           MACOS_CERT_PASSWORD: ${{ secrets.MACOS_CERT_PASSWORD }}
@@ -211,7 +228,7 @@ jobs:
           hdiutil create -volname "Mezon" -srcfolder "$STAGE" -ov -format UDZO target/dist-ci/Mezon.dmg
 
       - name: Notarize DMG
-        if: ${{ secrets.MACOS_CERT_P12 != '' && secrets.APPLE_API_KEY_P8 != '' }}
+        if: steps.signing.outputs.has_cert == 'true' && steps.signing.outputs.has_notary == 'true'
         env:
           APPLE_API_KEY_P8: ${{ secrets.APPLE_API_KEY_P8 }}
           APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}

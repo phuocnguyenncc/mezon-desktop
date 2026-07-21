@@ -1262,6 +1262,8 @@ impl Render for ChatLayout {
             .filter(|store| matches!(store.read(cx).status(), AutoUpdateStatus::Updated { .. }))
             .map(|_| {
                 let locale = self.settings.read(cx).language.clone();
+                let theme = cx.theme();
+                let hover_bg = theme.tokens.bg_button_primary_hover;
                 div()
                     .id("update-mezon-pill")
                     .flex()
@@ -1270,16 +1272,13 @@ impl Render for ChatLayout {
                     .gap_1()
                     .mx_2()
                     .mt_2()
+                    .mb_2()
                     .h(px(28.0))
                     .flex_none()
-                    .rounded_full()
-                    .bg(gpui::linear_gradient(
-                        90.,
-                        gpui::linear_color_stop(gpui::rgb(0x7c3aed), 0.),
-                        gpui::linear_color_stop(gpui::rgb(0x22c55e), 1.),
-                    ))
+                    .rounded(px(8.0))
+                    .bg(theme.tokens.bg_button_primary)
                     .cursor_pointer()
-                    .hover(|s| s.opacity(0.85))
+                    .hover(move |s| s.bg(hover_bg))
                     .on_click(|_, _, cx| cx.restart())
                     .child(
                         Icon::new(IconName::ReloadIcon)

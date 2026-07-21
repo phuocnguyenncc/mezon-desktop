@@ -243,12 +243,14 @@ fn run_app(lock: SingleInstance, initial_url: Option<String>) {
     let initial_auth_state = mezon_store::resolve_initial_auth_state();
 
     // Subscribe to screen lock/unlock events.
-    mezon_native::power::subscribe(Box::new(|event| match event {
+    let (wake_tx, mut wake_rx) = futures::channel::mpsc::unbounded::<()>();
+    mezon_native::power::subscribe(Box::new(move |event| match event {
         mezon_native::power::PowerEvent::ScreenLocked => {
             tracing::info!("Screen locked");
         }
         mezon_native::power::PowerEvent::ScreenUnlocked => {
             tracing::info!("Screen unlocked");
+            let _ = wake_tx.unbounded_send(());
         }
     }));
 
@@ -324,6 +326,17 @@ fn run_app(lock: SingleInstance, initial_url: Option<String>) {
         init_ui(cx);
 
         AppConfig::init_global(app_config_handle, cx);
+
+        let wake_task = cx.spawn(async move |cx: &mut AsyncApp| {
+            while wake_rx.next().await.is_some() {
+                cx.update(|cx| {
+                    if let Some(store) = mezon_store::AutoUpdateStore::try_global(cx) {
+                        store.update(cx, |store, cx| store.check(false, cx));
+                    }
+                });
+            }
+        });
+        cx.set_global(WakeCheckTaskGlobal(wake_task));
 
         mezon_ui::theme::set_theme(mezon_ui::theme::resolve_theme(&settings.theme), cx);
 
@@ -742,6 +755,9 @@ fn show_main_window(cx: &mut App) {
 
 struct TrayGlobal(#[allow(dead_code)] mezon_native::tray::MezonTray);
 impl gpui::Global for TrayGlobal {}
+
+struct WakeCheckTaskGlobal(#[allow(dead_code)] gpui::Task<()>);
+impl gpui::Global for WakeCheckTaskGlobal {}
 
 struct TrayTasksGlobal {
     _deep_link: gpui::Task<()>,

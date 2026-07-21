@@ -2063,7 +2063,7 @@
   "common.transferredSuccessfully": "Transferred successfully!",
   "common.unlockItem": "Unlock Item",
   "common.unmuteNotification": "Unmute",
-  "common.updateMezon": "Update Mezon",
+  "common.updateMezon": "Restart to update Mezon",
   "common.updateUsername.enterUsername": "Enter Mezon name",
   "common.updateUsername.errorDuplicate": "There’s an issue or the name already exists, please choose another one.",
   "common.updateUsername.skipUpdateBack": "Return to login with phone number",

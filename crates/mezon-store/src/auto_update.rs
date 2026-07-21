@@ -3,6 +3,7 @@ use std::time::Duration;
 
 const POLL_INTERVAL: Duration = Duration::from_secs(60 * 60);
 const FIRST_POLL_DELAY: Duration = Duration::from_secs(5);
+const AUTO_CHECK_MIN_GAP: Duration = Duration::from_secs(5 * 60);
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum AutoUpdateStatus {
@@ -33,6 +34,7 @@ enum UpdatePhase {
 pub struct AutoUpdateStore {
     status: AutoUpdateStatus,
     base_url: String,
+    last_auto_check: Option<std::time::SystemTime>,
     _poll_task: Option<Task<()>>,
     pending: Option<Task<()>>,
 }
@@ -74,6 +76,7 @@ impl AutoUpdateStore {
             AutoUpdateStore {
                 status: AutoUpdateStatus::Idle,
                 base_url,
+                last_auto_check: None,
                 _poll_task: poll_task,
                 pending: None,
             }
@@ -101,6 +104,17 @@ impl AutoUpdateStore {
         }
         if auto_update_disabled() {
             return;
+        }
+        if !manual {
+            let now = std::time::SystemTime::now();
+            let recently_checked = self.last_auto_check.is_some_and(|last| {
+                now.duration_since(last)
+                    .is_ok_and(|elapsed| elapsed < AUTO_CHECK_MIN_GAP)
+            });
+            if recently_checked {
+                return;
+            }
+            self.last_auto_check = Some(now);
         }
         let current_version = match &self.status {
             AutoUpdateStatus::Updated { version } => version.to_string(),

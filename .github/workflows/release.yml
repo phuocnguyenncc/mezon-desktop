@@ -62,7 +62,9 @@ env:
 jobs:
   linux:
     name: Linux artifacts
-    runs-on: ubuntu-latest
+    # Build on 22.04 so the binary links against glibc 2.35 (runs on 22.04+).
+    # ubuntu-latest (24.04) produces GLIBC_2.39 binaries that fail on 22.04 LTS.
+    runs-on: ubuntu-22.04
     steps:
       - name: Checkout
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4

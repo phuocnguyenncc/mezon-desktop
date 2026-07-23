@@ -79,10 +79,22 @@ debSha512: <base64 của SHA-512>
   có Start Menu + mục trong Settings→Apps + uninstaller, không cần quyền admin.
   Kênh phụ cho dev: `scripts/install-windows.ps1` (tải + verify sha512 + cài +
   Unblock-File). Zip trong feed chỉ dành cho updater.
-  Lưu ý SmartScreen: installer chưa ký Authenticode nên lần chạy setup đầu tiên
-  user thấy "More info → Run anyway"; ký Authenticode (OV/EV cert hoặc Azure
-  Trusted Signing — tương đương notarize bên macOS) là bước nâng cấp sau, không
-  ảnh hưởng auto-update.
+  Lưu ý SmartScreen: khi chưa ký Authenticode, lần chạy setup đầu tiên user
+  thấy "Windows protected your PC" → bấm **More info → Run anyway** (chỉ lần
+  đầu; các lần auto-update sau không dính vì file do chính app ghi, không có
+  Mark-of-the-Web). CI đã wire sẵn ký Authenticode — thêm 2 secrets là tự bật
+  (ký cả `mezon.exe` trong zip lẫn `Mezon-Setup-<v>.exe`):
+
+  | Secret | Nội dung |
+  |---|---|
+  | `WINDOWS_CERT_PFX` | file `.pfx` chứa cert code-signing (OV/EV), encode base64 |
+  | `WINDOWS_CERT_PASSWORD` | mật khẩu của file .pfx |
+
+  Chọn cert: **EV cert hoặc Azure Trusted Signing** có SmartScreen reputation
+  gần như ngay lập tức; **OV cert** rẻ hơn nhưng vẫn bị SmartScreen cảnh báo
+  thêm một thời gian đầu cho tới khi tích đủ reputation. Nếu công ty chọn Azure
+  Trusted Signing (không có file .pfx, ký qua cloud) thì bước CI cần đổi sang
+  `azuresigntool` — chưa wire sẵn.
 
 ## Các bước phát hành
 

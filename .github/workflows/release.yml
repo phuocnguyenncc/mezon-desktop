@@ -120,6 +120,37 @@ jobs:
       - name: Build release binary
         run: cargo build --release -p mezon-app --locked
 
+      - name: Detect signing configuration
+        id: signing
+        shell: bash
+        env:
+          WINDOWS_CERT_PFX: ${{ secrets.WINDOWS_CERT_PFX }}
+        run: |
+          if [ -n "$WINDOWS_CERT_PFX" ]; then
+            echo "has_cert=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_cert=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Sign mezon.exe
+        if: steps.signing.outputs.has_cert == 'true'
+        shell: pwsh
+        env:
+          WINDOWS_CERT_PFX: ${{ secrets.WINDOWS_CERT_PFX }}
+          WINDOWS_CERT_PASSWORD: ${{ secrets.WINDOWS_CERT_PASSWORD }}
+        run: |
+          $pfx = Join-Path $env:RUNNER_TEMP "cert.pfx"
+          [IO.File]::WriteAllBytes($pfx, [Convert]::FromBase64String($env:WINDOWS_CERT_PFX))
+          $signtool = (Get-ChildItem "${env:ProgramFiles(x86)}\Windows Kits\10\bin\*\x64\signtool.exe" |
+            Sort-Object FullName | Select-Object -Last 1).FullName
+          & $signtool sign /f $pfx /p $env:WINDOWS_CERT_PASSWORD /fd SHA256 /td SHA256 `
+            /tr http://timestamp.digicert.com target\release\mezon.exe
+          $code = $LASTEXITCODE
+          Remove-Item $pfx
+          if ($code -ne 0) { exit 1 }
+          & $signtool verify /pa target\release\mezon.exe
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+
       - name: Package update feed
         shell: bash
         run: bash scripts/make-update-feed.sh windows
@@ -134,7 +165,28 @@ jobs:
             /DSetupIcon="$PWD\crates\mezon-app\resources\windows\app.ico" `
             /O"$PWD\target\installer" `
             packaging\windows\mezon.iss
-          Copy-Item target\installer\*.exe target\update-feed\
+
+      - name: Sign installer
+        if: steps.signing.outputs.has_cert == 'true'
+        shell: pwsh
+        env:
+          WINDOWS_CERT_PFX: ${{ secrets.WINDOWS_CERT_PFX }}
+          WINDOWS_CERT_PASSWORD: ${{ secrets.WINDOWS_CERT_PASSWORD }}
+        run: |
+          $pfx = Join-Path $env:RUNNER_TEMP "cert.pfx"
+          [IO.File]::WriteAllBytes($pfx, [Convert]::FromBase64String($env:WINDOWS_CERT_PFX))
+          $signtool = (Get-ChildItem "${env:ProgramFiles(x86)}\Windows Kits\10\bin\*\x64\signtool.exe" |
+            Sort-Object FullName | Select-Object -Last 1).FullName
+          $setup = (Get-ChildItem target\installer\*.exe).FullName
+          & $signtool sign /f $pfx /p $env:WINDOWS_CERT_PASSWORD /fd SHA256 /td SHA256 `
+            /tr http://timestamp.digicert.com $setup
+          $code = $LASTEXITCODE
+          Remove-Item $pfx
+          if ($code -ne 0) { exit 1 }
+
+      - name: Collect installer
+        shell: pwsh
+        run: Copy-Item target\installer\*.exe target\update-feed\
 
       - name: Upload feed
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4

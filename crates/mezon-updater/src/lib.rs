@@ -69,12 +69,47 @@ pub struct UpdateManifest {
     pub version: String,
     pub sha512: String,
     pub path: String,
+    pub deb_path: Option<String>,
+    pub deb_sha512: Option<String>,
+}
+
+impl UpdateManifest {
+    /// The .deb artifact, only when it can also be checksum-verified.
+    pub fn deb_artifact(&self) -> Option<(&str, &str)> {
+        match (self.deb_path.as_deref(), self.deb_sha512.as_deref()) {
+            (Some(path), Some(sha512)) => Some((path, sha512)),
+            _ => None,
+        }
+    }
+}
+
+// Referenced by non-test code only on Linux, but unit-tested on every platform.
+#[cfg_attr(any(target_os = "macos", target_os = "windows"), allow(dead_code))]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum LinuxInstallPlan {
+    ReplaceBinary,
+    InstallDeb,
+    Unsupported,
+}
+
+#[cfg_attr(any(target_os = "macos", target_os = "windows"), allow(dead_code))]
+fn linux_install_plan(exe_dir_writable: bool, deb_available: bool) -> LinuxInstallPlan {
+    if exe_dir_writable {
+        LinuxInstallPlan::ReplaceBinary
+    } else if deb_available {
+        LinuxInstallPlan::InstallDeb
+    } else {
+        LinuxInstallPlan::Unsupported
+    }
 }
 
 pub struct DownloadedUpdate {
     _dir: tempfile::TempDir,
     staging: PathBuf,
     archive: PathBuf,
+    // Read by the Linux installer; other platforms only ever set it.
+    #[allow(dead_code)]
+    is_deb: bool,
 }
 
 pub struct InstallOutcome {
@@ -191,6 +226,8 @@ fn parse_manifest(body: &str) -> Result<UpdateManifest> {
         version,
         sha512,
         path,
+        deb_path: parse_field(body, "deb").map(str::to_string),
+        deb_sha512: parse_field(body, "debSha512").map(str::to_string),
     })
 }
 
@@ -251,24 +288,92 @@ fn expected_archive_extension() -> &'static str {
     }
 }
 
+#[cfg(all(not(target_os = "macos"), not(target_os = "windows")))]
+fn exe_dir() -> Result<PathBuf> {
+    let exe = std::env::current_exe().context("failed to locate running executable")?;
+    Ok(exe
+        .parent()
+        .ok_or_else(|| anyhow!("running executable has no parent directory"))?
+        .to_path_buf())
+}
+
+#[cfg(all(not(target_os = "macos"), not(target_os = "windows")))]
+fn exe_dir_writable() -> bool {
+    let Ok(dir) = exe_dir() else { return false };
+    let probe = dir.join(format!(".mezon-write-probe-{}", std::process::id()));
+    match std::fs::OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(&probe)
+    {
+        Ok(_) => {
+            let _ = std::fs::remove_file(&probe);
+            true
+        }
+        Err(_) => false,
+    }
+}
+
+/// True when the running install cannot be replaced without elevated
+/// privileges (e.g. a .deb install in /usr/bin). Background polls stop before
+/// installing in that case so the polkit password prompt only ever appears in
+/// response to an explicit user action.
+pub fn needs_privileged_install() -> bool {
+    #[cfg(all(not(target_os = "macos"), not(target_os = "windows")))]
+    {
+        !exe_dir_writable()
+    }
+    #[cfg(any(target_os = "macos", target_os = "windows"))]
+    {
+        false
+    }
+}
+
+fn select_artifact(manifest: &UpdateManifest) -> Result<(&str, &str, &'static str, bool)> {
+    #[cfg(all(not(target_os = "macos"), not(target_os = "windows")))]
+    {
+        match linux_install_plan(exe_dir_writable(), manifest.deb_artifact().is_some()) {
+            LinuxInstallPlan::InstallDeb => {
+                let (path, sha512) = manifest
+                    .deb_artifact()
+                    .ok_or_else(|| anyhow!("update manifest has no .deb artifact"))?;
+                return Ok((path, sha512, ".deb", true));
+            }
+            LinuxInstallPlan::Unsupported => {
+                let dir = exe_dir()
+                    .map(|d| d.display().to_string())
+                    .unwrap_or_else(|_| "the install directory".to_string());
+                bail!(
+                    "cannot write to {dir} and the update feed has no .deb; if Mezon was installed with a package manager, update it with the package manager instead"
+                );
+            }
+            LinuxInstallPlan::ReplaceBinary => {}
+        }
+    }
+    Ok((
+        &manifest.path,
+        &manifest.sha512,
+        expected_archive_extension(),
+        false,
+    ))
+}
+
 pub async fn download_update(
     base_url: &str,
     manifest: &UpdateManifest,
     on_progress: impl Fn(u64, Option<u64>) + Send,
 ) -> Result<DownloadedUpdate> {
-    let file_name = Path::new(&manifest.path)
+    let (artifact_path, artifact_sha512, expected_ext, is_deb) = select_artifact(manifest)?;
+    let file_name = Path::new(artifact_path)
         .file_name()
         .and_then(|n| n.to_str())
         .ok_or_else(|| anyhow!("invalid artifact path in manifest"))?
         .to_string();
-    if !file_name.ends_with(expected_archive_extension()) {
-        bail!(
-            "unexpected artifact '{file_name}' for this platform (want {})",
-            expected_archive_extension()
-        );
+    if !file_name.ends_with(expected_ext) {
+        bail!("unexpected artifact '{file_name}' for this platform (want {expected_ext})");
     }
 
-    let artifact_url = join_url(base_url, &manifest.path)?;
+    let artifact_url = join_url(base_url, artifact_path)?;
     validate_url_with_base(&artifact_url, base_url)?;
 
     let dir = tempfile::Builder::new()
@@ -329,13 +434,14 @@ pub async fn download_update(
     drop(file);
     on_progress(written, total.or(Some(written)));
 
-    verify_digest(hasher, &manifest.sha512)?;
+    verify_digest(hasher, artifact_sha512)?;
     tracing::info!("downloaded update archive {file_name} ({written} bytes)");
 
     Ok(DownloadedUpdate {
         _dir: dir,
         staging,
         archive,
+        is_deb,
     })
 }
 
@@ -517,7 +623,45 @@ async fn find_app_bundle(volume: &Path) -> Result<Option<PathBuf>> {
 }
 
 #[cfg(all(not(target_os = "macos"), not(target_os = "windows")))]
+async fn install_linux_deb(update: &DownloadedUpdate) -> Result<InstallOutcome> {
+    let current_exe = std::env::current_exe().context("failed to locate running executable")?;
+
+    let output = tokio::process::Command::new("pkexec")
+        .arg("/usr/bin/dpkg")
+        .arg("-i")
+        .arg(&update.archive)
+        .output()
+        .await
+        .map_err(|e| {
+            if e.kind() == std::io::ErrorKind::NotFound {
+                anyhow!("pkexec (polkit) not found; update with your package manager instead")
+            } else {
+                anyhow!("failed to run pkexec: {e}")
+            }
+        })?;
+    if !output.status.success() {
+        return Err(match output.status.code() {
+            // pkexec: 126 = authorization dialog dismissed, 127 = not authorized
+            Some(126) => anyhow!("update canceled: the authorization prompt was dismissed"),
+            Some(127) => anyhow!("update not authorized"),
+            _ => anyhow!(
+                "dpkg failed: {}",
+                String::from_utf8_lossy(&output.stderr).trim()
+            ),
+        });
+    }
+
+    Ok(InstallOutcome {
+        restart_path: Some(current_exe),
+    })
+}
+
+#[cfg(all(not(target_os = "macos"), not(target_os = "windows")))]
 async fn install_linux(update: &DownloadedUpdate) -> Result<InstallOutcome> {
+    if update.is_deb {
+        return install_linux_deb(update).await;
+    }
+
     let current_exe = std::env::current_exe().context("failed to locate running executable")?;
     let exe_dir = current_exe
         .parent()
@@ -811,6 +955,42 @@ mod tests {
         assert_eq!(m.version, "1.5.0");
         assert_eq!(m.path, "mezon-1.5.0-mac.dmg");
         assert_eq!(m.sha512, "abc123=");
+    }
+
+    #[test]
+    fn parse_manifest_extracts_deb_fields() {
+        let body = "version: 1.5.0\npath: mezon-1.5.0-linux-x86_64.tar.gz\nsha512: abc=\ndeb: mezon_1.5.0-1_amd64.deb\ndebSha512: def=\n";
+        let m = parse_manifest(body).unwrap();
+        assert_eq!(m.sha512, "abc=");
+        assert_eq!(m.deb_artifact(), Some(("mezon_1.5.0-1_amd64.deb", "def=")));
+    }
+
+    #[test]
+    fn parse_manifest_without_deb_fields_has_no_deb_artifact() {
+        let body = "version: 1.5.0\npath: mezon.tar.gz\nsha512: abc=\n";
+        assert_eq!(parse_manifest(body).unwrap().deb_artifact(), None);
+    }
+
+    #[test]
+    fn parse_manifest_deb_without_checksum_has_no_deb_artifact() {
+        let body = "version: 1.5.0\npath: mezon.tar.gz\nsha512: abc=\ndeb: mezon.deb\n";
+        assert_eq!(parse_manifest(body).unwrap().deb_artifact(), None);
+    }
+
+    #[test]
+    fn writable_exe_dir_replaces_binary_in_place() {
+        assert_eq!(linux_install_plan(true, true), LinuxInstallPlan::ReplaceBinary);
+        assert_eq!(linux_install_plan(true, false), LinuxInstallPlan::ReplaceBinary);
+    }
+
+    #[test]
+    fn unwritable_exe_dir_with_deb_installs_deb() {
+        assert_eq!(linux_install_plan(false, true), LinuxInstallPlan::InstallDeb);
+    }
+
+    #[test]
+    fn unwritable_exe_dir_without_deb_is_unsupported() {
+        assert_eq!(linux_install_plan(false, false), LinuxInstallPlan::Unsupported);
     }
 
     #[test]

@@ -1,11 +1,14 @@
 #!/usr/bin/env bash
 # Generate an update manifest (electron-builder style yml) for one artifact.
-# usage: make-update-manifest.sh <artifact> <version> <out-yml>
+# The optional <deb> argument adds deb/debSha512 fields so package-manager
+# installs can self-update via pkexec.
+# usage: make-update-manifest.sh <artifact> <version> <out-yml> [deb]
 set -euo pipefail
 
-artifact="${1:?usage: make-update-manifest.sh <artifact> <version> <out-yml>}"
+artifact="${1:?usage: make-update-manifest.sh <artifact> <version> <out-yml> [deb]}"
 version="${2:?missing version}"
 out="${3:?missing output path}"
+deb="${4:-}"
 
 [[ -f "$artifact" ]] || { echo "artifact not found: $artifact" >&2; exit 1; }
 
@@ -16,6 +19,18 @@ cat > "$out" <<EOF
 version: ${version}
 path: $(basename "$artifact")
 sha512: ${sha512}
+EOF
+
+if [[ -n "$deb" ]]; then
+  [[ -f "$deb" ]] || { echo "deb not found: $deb" >&2; exit 1; }
+  deb_sha512="$(openssl dgst -sha512 -binary "$deb" | openssl base64 -A)"
+  cat >> "$out" <<EOF
+deb: $(basename "$deb")
+debSha512: ${deb_sha512}
+EOF
+fi
+
+cat >> "$out" <<EOF
 size: ${size}
 releaseDate: '$(date -u +%Y-%m-%dT%H:%M:%S.000Z)'
 EOF

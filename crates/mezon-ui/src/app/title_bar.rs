@@ -70,6 +70,33 @@ fn update_indicator(
                 .text_color(theme.text_muted)
                 .child(mezon_i18n::t(locale, "setting.update.installing").to_string()),
         ),
+        AutoUpdateStatus::UpdateAvailable { version } => {
+            let bg_hover = theme.bg_hover;
+            Some(
+                div()
+                    .id("titlebar-update-install")
+                    .flex()
+                    .items_center()
+                    .h(px(22.0))
+                    .px_2()
+                    .mr_2()
+                    .rounded(px(4.0))
+                    .text_xs()
+                    .font_weight(FontWeight::MEDIUM)
+                    .text_color(gpui::rgb(0x22c55e))
+                    .cursor_pointer()
+                    .hover(move |s| s.bg(bg_hover))
+                    .on_click(|_, _, cx| {
+                        if let Some(store) = AutoUpdateStore::try_global(cx) {
+                            store.update(cx, |store, cx| store.check(true, cx));
+                        }
+                    })
+                    .child(format!(
+                        "{} (v{version})",
+                        mezon_i18n::t(locale, "setting.update.available")
+                    )),
+            )
+        }
         AutoUpdateStatus::Updated { version } => {
             let bg_hover = theme.bg_hover;
             Some(

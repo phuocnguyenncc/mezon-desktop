@@ -315,6 +315,13 @@ impl Render for SettingsScreen {
                     mezon_i18n::t(locale, "setting.update.checking").to_string(),
                     theme.text_muted,
                 ),
+                AutoUpdateStatus::UpdateAvailable { version } => (
+                    format!(
+                        "{} (v{version})",
+                        mezon_i18n::t(locale, "setting.update.available")
+                    ),
+                    gpui::rgb(0x22c55e),
+                ),
                 AutoUpdateStatus::Downloading { progress, .. } => (
                     match progress {
                         Some(fraction) => format!(
@@ -364,6 +371,7 @@ impl Render for SettingsScreen {
             match &status {
                 AutoUpdateStatus::Idle
                 | AutoUpdateStatus::UpToDate
+                | AutoUpdateStatus::UpdateAvailable { .. }
                 | AutoUpdateStatus::Errored { .. } => {
                     row = row
                         .cursor_pointer()

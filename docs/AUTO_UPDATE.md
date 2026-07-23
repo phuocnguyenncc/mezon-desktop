@@ -23,7 +23,7 @@ Tên file `latest-native-*` để **không đụng** feed của bản Electron t
 | Platform | Manifest | Artifact |
 |---|---|---|
 | macOS (universal) | `latest-native-mac.yml` | `Mezon-<v>-universal.dmg` |
-| Linux x86_64 | `latest-native-linux-x86_64.yml` | `mezon-<v>-linux-x86_64.tar.gz` (chứa `mezon` + `mezon.png` + `mezon.desktop`) |
+| Linux x86_64 | `latest-native-linux-x86_64.yml` | `mezon-<v>-linux-x86_64.tar.gz` (chứa `mezon` + `mezon.png` + `mezon.desktop`) + `mezon_<v>-1_amd64.deb` (cho bản cài .deb) |
 | Windows x64 | `latest-native-windows-x86_64.yml` | `mezon-<v>-windows-x86_64.zip` (chứa `mezon.exe`) |
 
 Kèm theo (không bắt buộc cho updater): `install-linux.sh` — installer cho kênh
@@ -39,6 +39,13 @@ size: 123456789
 releaseDate: '2026-07-20T10:00:00.000Z'
 ```
 
+Manifest Linux có thêm 2 field tùy chọn cho bản cài `.deb` (client cũ bỏ qua):
+
+```yaml
+deb: mezon_0.2.0-1_amd64.deb
+debSha512: <base64 của SHA-512>
+```
+
 ## Hành vi từng platform
 
 - **macOS** — mount DMG bằng `hdiutil`, `rsync -a --delete` đè lên `.app` đang chạy
@@ -51,12 +58,18 @@ releaseDate: '2026-07-20T10:00:00.000Z'
   code — update user sang bản ký ad-hoc sẽ làm mất session và bị hỏi lại toàn bộ
   quyền.
 - **Linux** — hai kênh cài đặt:
-  - **tar.gz (có auto-update)** — cài bằng `scripts/install-linux.sh`: binary vào
+  - **tar.gz** — cài bằng `scripts/install-linux.sh`: binary vào
     `~/.local/share/mezon/mezon`, symlink `~/.local/bin/mezon`, desktop entry +
     icon vào `~/.local/share`. Updater thay binary bằng `rename` (atomic, thư mục
-    user ghi được).
-  - **.deb (không auto-update)** — cài vào `/usr/bin` (root-owned); app sẽ báo lỗi
-    rõ ràng khi thử tự update — user update qua `apt` hoặc tải `.deb` mới.
+    user ghi được), hoàn toàn im lặng.
+  - **.deb** — cài vào `/usr/bin` (root-owned) nên cần quyền root để update:
+    app tải `.deb` từ feed (field `deb`/`debSha512` trong manifest), verify
+    sha512 rồi chạy `pkexec dpkg -i` — polkit hiện hộp thoại nhập mật khẩu.
+    Auto-poll nền **không** tự bật hộp thoại: khi có bản mới nó chỉ hiện trạng
+    thái "Có bản cập nhật — bấm để cài đặt" (title bar + settings); bấm vào mới
+    tải + cài (đây là lúc polkit hỏi mật khẩu). Check thủ công thì cài luôn.
+    Nếu manifest cũ chưa có field `deb` (hoặc thiếu `pkexec`), app báo lỗi ngay
+    từ trước khi tải, hướng dẫn update qua package manager.
 - **Windows** — giải nén zip (dùng `tar.exe` có sẵn của Windows 10+), rename
   `mezon.exe` đang chạy thành `mezon-old-<pid>.exe` (Windows cho phép rename file
   đang chạy), đặt exe mới vào chỗ cũ. File `mezon-old-*.exe` được dọn ở lần khởi

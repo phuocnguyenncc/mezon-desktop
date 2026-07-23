@@ -90,8 +90,8 @@ jobs:
 
       - name: Package update feed
         run: |
-          bash scripts/make-update-feed.sh linux
-          cp target/debian/*.deb target/update-feed/
+          bash scripts/make-update-feed.sh linux target/release/mezon \
+            "$(ls target/debian/mezon_*.deb | head -n1)"
 
       - name: Upload feed
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4

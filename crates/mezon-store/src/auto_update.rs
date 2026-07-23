@@ -9,6 +9,11 @@ const AUTO_CHECK_MIN_GAP: Duration = Duration::from_secs(5 * 60);
 pub enum AutoUpdateStatus {
     Idle,
     Checking,
+    /// A new version exists but installing needs an explicit user action
+    /// (privileged install, e.g. a .deb in /usr/bin — polkit will prompt).
+    UpdateAvailable {
+        version: SharedString,
+    },
     Downloading {
         version: SharedString,
         progress: Option<f32>,
@@ -29,6 +34,17 @@ enum UpdatePhase {
     Found { version: String },
     Downloading { fraction: Option<f32> },
     Installing,
+}
+
+enum CheckOutcome {
+    UpToDate,
+    Installed {
+        version: String,
+        outcome: mezon_updater::InstallOutcome,
+    },
+    ManualInstallAvailable {
+        version: String,
+    },
 }
 
 pub struct AutoUpdateStore {
@@ -137,9 +153,12 @@ impl AutoUpdateStore {
             let Some(manifest) =
                 mezon_updater::check_for_updates_with_manifest(&base_url, &current_version).await?
             else {
-                return anyhow::Ok(None);
+                return anyhow::Ok(CheckOutcome::UpToDate);
             };
             let version = manifest.version.clone();
+            if !manual && mezon_updater::needs_privileged_install() {
+                return anyhow::Ok(CheckOutcome::ManualInstallAvailable { version });
+            }
             let _ = phase_tx.send(UpdatePhase::Found {
                 version: version.clone(),
             });
@@ -153,7 +172,7 @@ impl AutoUpdateStore {
                 .await?;
             let _ = phase_tx.send(UpdatePhase::Installing);
             let outcome = mezon_updater::install_update(&downloaded, app_path.as_deref()).await?;
-            anyhow::Ok(Some((version, outcome)))
+            anyhow::Ok(CheckOutcome::Installed { version, outcome })
         });
 
         self.pending = Some(cx.spawn(async move |this, cx| {
@@ -197,7 +216,7 @@ impl AutoUpdateStore {
             let _ = this.update(cx, |this, cx| {
                 this.pending = None;
                 this.status = match result {
-                    Ok(Some((version, outcome))) => {
+                    Ok(CheckOutcome::Installed { version, outcome }) => {
                         if let Some(restart_path) = outcome.restart_path {
                             cx.set_restart_path(restart_path);
                         }
@@ -206,7 +225,13 @@ impl AutoUpdateStore {
                             version: SharedString::from(version),
                         }
                     }
-                    Ok(None) => {
+                    Ok(CheckOutcome::ManualInstallAvailable { version }) => {
+                        tracing::info!("update v{version} available; waiting for user action");
+                        AutoUpdateStatus::UpdateAvailable {
+                            version: SharedString::from(version),
+                        }
+                    }
+                    Ok(CheckOutcome::UpToDate) => {
                         if manual {
                             AutoUpdateStatus::UpToDate
                         } else {

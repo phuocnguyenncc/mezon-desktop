@@ -3933,6 +3933,7 @@
   "setting.supportSettings.support": "Support",
   "setting.supportSettings.title": "Support",
   "setting.supportSettings.uploadLog": "Upload debug logs to Mezon Support",
+  "setting.update.available": "Update available — click to install",
   "setting.update.check": "Check for Updates",
   "setting.update.checking": "Checking for updates…",
   "setting.update.downloading": "Downloading update",

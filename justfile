@@ -52,6 +52,7 @@ help:
     @echo "  ---------------------------------------------"
     @echo "  bundle          Build macOS Mezon.app bundle"
     @echo "  build-deb       Build Linux .deb package"
+    @echo "  update-feed     Package auto-update artifact + manifest (docs/AUTO_UPDATE.md)"
     @echo ""
 
 # ------------------------------------------------------------------------------
@@ -198,6 +199,10 @@ bundle: release
 # Build a Linux .deb package (requires Linux; run install-linux-deps first)
 build-deb:
     @bash scripts/build-deb.sh
+
+# Package auto-update artifact + manifest into target/update-feed (see docs/AUTO_UPDATE.md)
+update-feed platform artifact="":
+    @bash scripts/make-update-feed.sh {{platform}} {{artifact}}
 
 # Clean build artifacts
 clean:

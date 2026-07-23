@@ -6,11 +6,12 @@ use gpui::{
     StyleRefinement, Subscription, Task, Window, canvas, deferred, div, prelude::*, px,
 };
 use mezon_store::{
-    AuthState, Channel, ChannelId, ChannelList, ChannelType, ClanId, ClanList, ClanMembersStore,
-    DirectChannel, DirectKind, DirectMessageStore, GroupMembersStore, InboxStore,
-    MessageSearchEvent, MessageSearchStore, MessagesStore, PinnedEvent, PinnedMessagesStore,
-    Settings, ThreadsEvent, ThreadsStore, TopicsEvent, TopicsStore, UiState, VoiceConnection,
-    VoiceMember, VoiceModerationError, VoiceStore, expand_mention_name_tokens,
+    AuthState, AutoUpdateStatus, AutoUpdateStore, Channel, ChannelId, ChannelList, ChannelType,
+    ClanId, ClanList, ClanMembersStore, DirectChannel, DirectKind, DirectMessageStore,
+    GroupMembersStore, InboxStore, MessageSearchEvent, MessageSearchStore, MessagesStore,
+    PinnedEvent, PinnedMessagesStore, Settings, ThreadsEvent, ThreadsStore, TopicsEvent,
+    TopicsStore, UiState, VoiceConnection, VoiceMember, VoiceModerationError, VoiceStore,
+    expand_mention_name_tokens,
 };
 use ui::PopoverMenuHandle;
 use ui::utils::ROUNDED_BORDER_WINDOW;
@@ -218,6 +219,10 @@ impl ChatLayout {
             cx.notify();
         })
         .detach();
+
+        if let Some(update_store) = AutoUpdateStore::try_global(cx) {
+            cx.observe(&update_store, |_, _, cx| cx.notify()).detach();
+        }
 
         let voice_store = VoiceStore::global(cx);
         cx.observe(&voice_store, |this, voice, cx| {
@@ -1328,6 +1333,41 @@ impl Render for ChatLayout {
         } else {
             px(0.)
         };
+        let update_pill = AutoUpdateStore::try_global(cx)
+            .filter(|store| matches!(store.read(cx).status(), AutoUpdateStatus::Updated { .. }))
+            .map(|_| {
+                let locale = self.settings.read(cx).language.clone();
+                let theme = cx.theme();
+                let hover_bg = theme.tokens.bg_button_primary_hover;
+                div()
+                    .id("update-mezon-pill")
+                    .flex()
+                    .items_center()
+                    .justify_center()
+                    .gap_1()
+                    .mx_2()
+                    .mt_2()
+                    .mb_2()
+                    .h(px(28.0))
+                    .flex_none()
+                    .rounded(px(8.0))
+                    .bg(theme.tokens.bg_button_primary)
+                    .cursor_pointer()
+                    .hover(move |s| s.bg(hover_bg))
+                    .on_click(|_, _, cx| cx.restart())
+                    .child(
+                        Icon::new(IconName::ReloadIcon)
+                            .size(px(14.0))
+                            .text_color(gpui::white()),
+                    )
+                    .child(
+                        div()
+                            .text_xs()
+                            .font_weight(gpui::FontWeight::SEMIBOLD)
+                            .text_color(gpui::white())
+                            .child(mezon_i18n::t(&locale, "common.updateMezon").to_string()),
+                    )
+            });
         let fullscreen = if self.connected_call_is_active(cx) {
             let chat = cx.entity();
             crate::chat::voice::render_screen_fullscreen_overlay(
@@ -1415,6 +1455,7 @@ impl Render for ChatLayout {
                                     .size_full(),
                                 )
                             }))
+                            .children(update_pill)
                             .child(
                                 AnyView::from(self.user_info_bar.clone())
                                     .cached(StyleRefinement::default().w_full().h(px(56.0))),

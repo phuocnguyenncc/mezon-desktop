@@ -241,7 +241,20 @@ jobs:
           mkdir -p "$STAGE"
           cp -R "$APP" "$STAGE/"
           ln -s /Applications "$STAGE/Applications"
-          hdiutil create -volname "Mezon" -srcfolder "$STAGE" -ov -format UDZO target/dist-ci/Mezon.dmg
+          # -size overrides hdiutil's srcfolder size estimate, which is
+          # intermittently too small on GitHub runners and fails with a bogus
+          # "No space left on device" while copying into the temp image.
+          for attempt in 1 2 3; do
+            if hdiutil create -volname "Mezon" -srcfolder "$STAGE" -ov -format UDZO -size 1g target/dist-ci/Mezon.dmg; then
+              break
+            fi
+            if [ "$attempt" = 3 ]; then
+              echo "hdiutil create failed after 3 attempts" >&2
+              exit 1
+            fi
+            echo "hdiutil create failed (attempt $attempt); retrying in 10s..." >&2
+            sleep 10
+          done
 
       - name: Notarize DMG
         if: steps.signing.outputs.has_cert == 'true' && steps.signing.outputs.has_notary == 'true'

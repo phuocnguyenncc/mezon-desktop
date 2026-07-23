@@ -220,6 +220,10 @@ jobs:
             target/aarch64-apple-darwin/release/mezon \
             target/x86_64-apple-darwin/release/mezon
           chmod +x "$APP/Contents/MacOS/mezon"
+          # The per-target build trees are no longer needed once the universal
+          # binary exists; free them so hdiutil has room to build the DMG.
+          rm -rf target/aarch64-apple-darwin target/x86_64-apple-darwin
+          df -h /
           cp assets/icons/app.icns "$APP/Contents/Resources/app.icns"
           cp crates/mezon-app/Info.plist "$APP/Contents/Info.plist"
           /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString ${VERSION}" "$APP/Contents/Info.plist"

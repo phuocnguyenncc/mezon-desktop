@@ -1872,6 +1872,7 @@
   "common.muteNotification": "Tắt thông báo",
   "common.newMention": "Đề cập mới",
   "common.newMessage": "Tin nhắn mới",
+  "common.newUpdateAvailable": "Có bản cập nhật mới",
   "common.noOneInVoice": "Hiện không có ai trong phòng",
   "common.noPermissionToCallBlocked": "Bạn không thể thực hiện hành động này.",
   "common.noPermissionToSendMessage": "Bạn không có quyền gửi tin nhắn trong kênh này.",

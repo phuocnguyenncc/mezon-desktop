@@ -1890,6 +1890,7 @@
   "common.muteNotification": "Mute",
   "common.newMention": "New mention",
   "common.newMessage": "New",
+  "common.newUpdateAvailable": "New update available",
   "common.noOneInVoice": "No one is currently in room",
   "common.noPermissionToCallBlocked": "You cannot perform this action.",
   "common.noPermissionToSendMessage": "You do not have permission to send messages in this channel.",

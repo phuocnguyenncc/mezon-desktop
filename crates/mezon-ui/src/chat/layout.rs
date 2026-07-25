@@ -3,7 +3,8 @@ use std::collections::HashMap;
 use crate::chat::channel_app_bar::ChannelAppBarTarget;
 use gpui::{
     AnyView, App, Context, DismissEvent, Entity, Focusable, Pixels, ScrollHandle, Size,
-    StyleRefinement, Subscription, Task, Window, canvas, deferred, div, prelude::*, px,
+    StyleRefinement, Subscription, Task, Window, canvas, deferred, div, linear_color_stop,
+    linear_gradient, prelude::*, px,
 };
 use mezon_store::{
     AuthState, AutoUpdateStatus, AutoUpdateStore, Channel, ChannelId, ChannelList, ChannelType,
@@ -1333,39 +1334,101 @@ impl Render for ChatLayout {
         } else {
             px(0.)
         };
+        // Purple→pink banner, matching the web app's update prompt styling.
+        fn update_banner_bg(hover: bool) -> gpui::Background {
+            if hover {
+                linear_gradient(
+                    90.,
+                    linear_color_stop(gpui::rgb(0x7c3aed), 0.),
+                    linear_color_stop(gpui::rgb(0xdb2777), 1.),
+                )
+            } else {
+                linear_gradient(
+                    90.,
+                    linear_color_stop(gpui::rgb(0x8b5cf6), 0.),
+                    linear_color_stop(gpui::rgb(0xec4899), 1.),
+                )
+            }
+        }
         let update_pill = AutoUpdateStore::try_global(cx)
             .filter(|store| matches!(store.read(cx).status(), AutoUpdateStatus::Updated { .. }))
             .map(|_| {
                 let locale = self.settings.read(cx).language.clone();
-                let theme = cx.theme();
-                let hover_bg = theme.tokens.bg_button_primary_hover;
                 div()
                     .id("update-mezon-pill")
                     .flex()
                     .items_center()
                     .justify_center()
-                    .gap_1()
+                    .gap_2()
                     .mx_2()
-                    .mt_2()
+                    .mt_3()
                     .mb_2()
-                    .h(px(28.0))
+                    .h(px(36.0))
                     .flex_none()
                     .rounded(px(8.0))
-                    .bg(theme.tokens.bg_button_primary)
+                    .bg(update_banner_bg(false))
                     .cursor_pointer()
-                    .hover(move |s| s.bg(hover_bg))
+                    .hover(|s| s.bg(update_banner_bg(true)))
                     .on_click(|_, _, cx| cx.restart())
                     .child(
                         Icon::new(IconName::ReloadIcon)
-                            .size(px(14.0))
+                            .size(px(16.0))
                             .text_color(gpui::white()),
                     )
                     .child(
                         div()
-                            .text_xs()
+                            .text_sm()
                             .font_weight(gpui::FontWeight::SEMIBOLD)
                             .text_color(gpui::white())
                             .child(mezon_i18n::t(&locale, "common.updateMezon").to_string()),
+                    )
+            });
+        // `UpdateAvailable` is only ever produced when installing needs a
+        // privileged, user-initiated step (Linux .deb in /usr/bin — see the
+        // needs_privileged_install gate in AutoUpdateStore::check), so this
+        // pill can only appear on Linux; clicking starts download + install.
+        let update_available_pill = AutoUpdateStore::try_global(cx)
+            .and_then(|store| match store.read(cx).status() {
+                AutoUpdateStatus::UpdateAvailable { version } => Some(version.clone()),
+                _ => None,
+            })
+            .map(|version| {
+                let locale = self.settings.read(cx).language.clone();
+                div()
+                    .id("update-available-pill")
+                    .flex()
+                    .items_center()
+                    .justify_center()
+                    .gap_2()
+                    .mx_2()
+                    .mt_3()
+                    .mb_2()
+                    .h(px(36.0))
+                    .flex_none()
+                    .rounded(px(8.0))
+                    .bg(update_banner_bg(false))
+                    .cursor_pointer()
+                    .hover(|s| s.bg(update_banner_bg(true)))
+                    .on_click(|_, _, cx| {
+                        if let Some(store) = AutoUpdateStore::try_global(cx) {
+                            store.update(cx, |store, cx| store.check(true, cx));
+                        }
+                    })
+                    .child(
+                        Icon::new(IconName::Download)
+                            .size(px(16.0))
+                            .text_color(gpui::white()),
+                    )
+                    .child(
+                        div()
+                            .text_sm()
+                            .font_weight(gpui::FontWeight::SEMIBOLD)
+                            .text_color(gpui::white())
+                            .child(format!(
+                                "{} (v{})",
+                                mezon_i18n::t(&locale, "common.newUpdateAvailable"),
+                                version
+                            )),
                     )
             });
         let fullscreen = if self.connected_call_is_active(cx) {
@@ -1455,6 +1518,7 @@ impl Render for ChatLayout {
                                     .size_full(),
                                 )
                             }))
+                            .children(update_available_pill)
                             .children(update_pill)
                             .child(
                                 AnyView::from(self.user_info_bar.clone())

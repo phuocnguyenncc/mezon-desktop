@@ -73,14 +73,12 @@ jobs:
             name: Linux
             artifact_name: mezon-linux-x86_64
             container: ubuntu:22.04
-          # TEMP: Windows/macOS commented out to speed up the ubuntu:22.04
-          # container verification loop — re-enable when done iterating.
-          # - os: windows-latest
-          #   name: Windows
-          #   artifact_name: mezon-windows-x86_64
-          # - os: macos-latest
-          #   name: macOS
-          #   artifact_name: mezon-macos-aarch64
+          - os: windows-latest
+            name: Windows
+            artifact_name: mezon-windows-x86_64
+          - os: macos-latest
+            name: macOS
+            artifact_name: mezon-macos-aarch64
 
     steps:
       - name: Install container prerequisites

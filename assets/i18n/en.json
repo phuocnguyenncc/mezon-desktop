@@ -3276,7 +3276,7 @@
   "messageBox.mentionCategories.emojiMatching": "EMOJI MATCHING",
   "messageBox.mentionCategories.members": "MEMBERS",
   "messageBox.mentionCategories.textChannels": "TEXT CHANNELS",
-  "messageBox.placeholder": "Write your thoughts here... HELLO",
+  "messageBox.placeholder": "Write your thoughts here... HELLO PIPO",
   "messageBox.slashCommands.ephemeral.description": "Send an ephemeral message (only visible to selected user)",
   "messageBox.suggestions.loadingCommands": "Loading commands...",
   "messageBox.suggestions.notifyEveryone": "Notify everyone who has permission to see this channel",

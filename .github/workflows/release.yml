@@ -63,7 +63,16 @@ jobs:
   linux:
     name: Linux artifacts
     runs-on: ubuntu-latest
+    # Build inside ubuntu:22.04 so the binary links glibc <= 2.35 and the .deb
+    # depends on pre-t64 package names, keeping it installable on Ubuntu 22.04+.
+    container: ubuntu:22.04
     steps:
+      - name: Install container prerequisites
+        run: |
+          apt-get update
+          DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+            git ca-certificates curl openssl zstd
+
       - name: Checkout
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
         with:

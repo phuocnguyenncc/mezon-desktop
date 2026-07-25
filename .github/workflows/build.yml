@@ -13,6 +13,9 @@ jobs:
   build:
     name: ${{ matrix.name }}
     runs-on: ${{ matrix.os }}
+    # Empty for Windows/macOS; Linux builds inside ubuntu:22.04 so artifacts
+    # stay installable on Ubuntu 22.04+ (glibc 2.35, pre-t64 package names).
+    container: ${{ matrix.container }}
     env:
       NX_CHAT_APP_API_HOST: api.mezon.ai
       NX_CHAT_APP_API_PORT: "443"
@@ -69,6 +72,7 @@ jobs:
           - os: ubuntu-latest
             name: Linux
             artifact_name: mezon-linux-x86_64
+            container: ubuntu:22.04
           - os: windows-latest
             name: Windows
             artifact_name: mezon-windows-x86_64
@@ -77,6 +81,13 @@ jobs:
             artifact_name: mezon-macos-aarch64
 
     steps:
+      - name: Install container prerequisites
+        if: runner.os == 'Linux'
+        run: |
+          apt-get update
+          DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+            git ca-certificates curl openssl zstd
+
       - name: Checkout
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
         with:

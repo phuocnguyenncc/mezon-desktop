@@ -345,6 +345,9 @@ cbindgen              = "0.28.0"
 
 [patch.crates-io]
 gpui = { path = "crates/vendor/gpui" }
+# Patched to compile against PipeWire < 0.3.65 headers (Ubuntu 22.04 build
+# container); see crates/vendor/libspa/README.md.
+libspa = { path = "crates/vendor/libspa" }
 
 [patch."https://github.com/zed-industries/scap"]
 zed-scap = { path = "crates/vendor/zed-scap" }

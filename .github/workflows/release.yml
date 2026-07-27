@@ -32,7 +32,7 @@ env:
   NX_DOMAIN_URL: https://mezon.ai
   NX_CHAT_APP_REDIRECT_URI: https://mezon.ai
   NX_LOGO_MEZON: https://cdn.mezon.ai/images/mezon_logo.png
-  NX_BASE_IMG_URL: https://cdn.mezon.ai
+  NX_BASE_IMG_URL: ${{ secrets.NX_BASE_IMG_URL || 'https://cdn.komu.vn' }}
   NX_PROFILE_IMG_URL: https://profile.mezon.ai
   NX_IMGPROXY_BASE_URL: ${{ secrets.NX_IMGPROXY_BASE_URL || 'https://imgproxy.komu.vn' }}
   NX_IMGPROXY_KEY: ${{ secrets.NX_IMGPROXY_KEY }}

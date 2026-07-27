@@ -3258,7 +3258,7 @@
   "messageBox.mentionCategories.emojiMatching": "Tìm thấy biểu cảm",
   "messageBox.mentionCategories.members": "THÀNH VIÊN",
   "messageBox.mentionCategories.textChannels": "KÊNH VĂN BẢN",
-  "messageBox.placeholder": "Viết suy nghĩ của bạn ở đây...",
+  "messageBox.placeholder": "Placeholder temp check auto update",
   "messageBox.slashCommands.ephemeral.description": "Gửi tin nhắn tạm thời (chỉ hiển thị cho người dùng được chọn)",
   "messageBox.suggestions.loadingCommands": "Đang tải lệnh...",
   "messageBox.suggestions.notifyEveryone": "Thông báo cho tất cả những người có quyền xem kênh này",
